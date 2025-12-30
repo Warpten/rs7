@@ -1,4 +1,4 @@
-use std::ops::{BitOr, BitOrAssign, Shl};
+use std::ops::BitOrAssign;
 
 use bytes::Buf;
 use num::Zero;

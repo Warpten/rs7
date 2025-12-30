@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, usize};
+use std::usize;
 
 use bytes::Buf;
 

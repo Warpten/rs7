@@ -12,7 +12,7 @@ pub struct Upvalue(u16);
 
 pub struct Prototype {
     /// Index of this prototype within its dump.
-    index: usize,
+    pub index: usize,
 
     flags: u8,
     numparams: u8,

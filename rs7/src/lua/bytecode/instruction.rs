@@ -1,3 +1,8 @@
+use rs7_proc::BytecodeInstruction;
+
+use bytes::Buf;
+
+#[derive(BytecodeInstruction)]
 pub enum Instruction {
     ISLT { a: u8, d: u16 },
     ISGE { a: u8, d: u16 },
@@ -103,3 +108,5 @@ pub enum Instruction {
     FUNCCW { a: u8 },
     FUNC { a: u8 },
 }
+
+impl Instruction {}
