@@ -1,5 +1,3 @@
-extern crate proc_macro;
-
 use syn::DeriveInput;
 
 pub fn bytecode_insn_impl(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
@@ -19,16 +17,30 @@ pub fn bytecode_insn_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
     let arms = (0u32..).zip(variants.iter()).map(|(i, v)| {
         let ident = &v.ident;
 
-        let fields = match &v.fields {
-            syn::Fields::Named(named) => &named.named,
+        let fields: Vec<_> = match &v.fields {
+            syn::Fields::Named(named) => (&named.named)
+                .iter()
+                .map(|f| f.ident.as_ref().unwrap())
+                .collect(),
             _ => panic!("Bytecode instruction only supports named fields"),
         };
 
-        let decoded_fields = fields.iter().map(|f| {
-            let field_ident = f.ident.as_ref().unwrap();
-            let name_str = field_ident.to_string();
+        let has_bc = fields
+            .iter()
+            .any(|f| f.to_string() == "b" || f.to_string() == "c");
+        let has_d = fields.iter().any(|f| f.to_string() == "d");
 
-            let expr = match name_str.as_str() {
+        assert!(
+            !(has_d && has_bc),
+            "{}",
+            format!(
+                "Bytecode instruction {} cannot be encoded with D and B/C!",
+                ident.to_string().as_str()
+            )
+        );
+
+        let decoded_fields = fields.iter().map(|f| {
+            let expr = match f.to_string().as_str() {
                 "a" => quote! { ((insn >> 8) & 0xFF) as u8 },
                 "b" => quote! { ((insn >> 16) & 0xFF) as u8 },
                 "c" => quote! { ((insn >> 24) & 0xFF) as u8 },
@@ -36,7 +48,7 @@ pub fn bytecode_insn_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
                 other => panic!("Unknown field '{}': expected a, b, c, or d", other),
             };
 
-            quote! { #field_ident: #expr }
+            quote! { #f: #expr }
         });
 
         quote! { #i => Self::#ident { #(#decoded_fields),* }, }
@@ -49,7 +61,7 @@ pub fn bytecode_insn_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
 
                 match insn & 0xFF {
                     #( #arms )*
-                    _ => unimplemented!(),
+                    _ => panic!("Unknown bytecode instruction"),
                 }
             }
         }
@@ -64,13 +76,29 @@ mod tests {
     use quote::quote;
 
     #[test]
-    pub fn test_codegen() {
+    #[should_panic]
+    pub fn invalid_codegen() {
+        let source = quote! {
+            pub enum Instruction {
+                A { a: u8 },
+                // This is invalid; D is (B << 8) | C.
+                BD { b: u8, d: u16 },
+            }
+        };
+
+        _ = bytecode_insn_impl(source);
+    }
+
+    #[test]
+    pub fn valid_codegen() {
         let source = quote! {
             pub enum Instruction {
                 A { a: u8 },
                 B { b: u8 },
                 C { c: u8 },
                 D { d: u16 },
+
+                AD { a: u8, d: u16 },
             }
         };
 
@@ -85,7 +113,11 @@ mod tests {
                         1u32 => Self::B { b: ((insn >> 16) & 0xFF) as u8 },
                         2u32 => Self::C { c: ((insn >> 24) & 0xFF) as u8 },
                         3u32 => Self::D { d: ((insn >> 16) & 0xFFFF) as u16 },
-                        _ => unimplemented!(),
+                        4u32 => Self::AD {
+                            a: ((insn >> 8) & 0xFF) as u8,
+                            d: ((insn >> 16) & 0xFFFF) as u16,
+                        },
+                        _ => panic!("Unknown bytecode instruction"),
                     }
                 }
             }
