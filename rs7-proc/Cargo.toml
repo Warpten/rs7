@@ -1,0 +1,15 @@
+[package]
+name = "rs7-proc"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+assert_tokens_eq = "0.1.0"
