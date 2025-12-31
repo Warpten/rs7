@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 
 mod insns;
 
-#[proc_macro_derive(BytecodeInstruction)]
+#[proc_macro_derive(BytecodeInstruction, attributes(bytecode))]
 pub fn bytecode_insn(input: TokenStream) -> TokenStream {
     let result = insns::bytecode_insn_impl(proc_macro2::TokenStream::from(input));
 

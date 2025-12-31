@@ -78,20 +78,18 @@ mod tests {
     #[test]
     #[should_panic]
     pub fn invalid_codegen() {
-        let source = quote! {
+        _ = bytecode_insn_impl(quote! {
             pub enum Instruction {
                 A { a: u8 },
                 // This is invalid; D is (B << 8) | C.
                 BD { b: u8, d: u16 },
             }
-        };
-
-        _ = bytecode_insn_impl(source);
+        });
     }
 
     #[test]
     pub fn valid_codegen() {
-        let source = quote! {
+        let output = bytecode_insn_impl(quote! {
             pub enum Instruction {
                 A { a: u8 },
                 B { b: u8 },
@@ -100,9 +98,7 @@ mod tests {
 
                 AD { a: u8, d: u16 },
             }
-        };
-
-        let output = bytecode_insn_impl(source);
+        });
 
         let expected = quote! {
             impl Instruction {

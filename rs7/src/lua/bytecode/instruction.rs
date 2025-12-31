@@ -2,7 +2,7 @@ use rs7_proc::BytecodeInstruction;
 
 use bytes::Buf;
 
-#[derive(BytecodeInstruction)]
+#[derive(BytecodeInstruction, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Instruction {
     ISLT { a: u8, d: u16 },
     ISGE { a: u8, d: u16 },
