@@ -26,9 +26,9 @@ pub enum Instruction {
     IST { d: u16 },
     ISF { d: u16 },
     #[bytecode(added = 2)]
-    ISTYPE { a: u8, d: u16 }, // bcdump v2
+    ISTYPE { a: u8, d: u16 },
     #[bytecode(added = 2)]
-    ISNUM { a: u8, d: u16 },  // bcdump v2+
+    ISNUM { a: u8, d: u16 },
 
     // Unary
     MOV { a: u8, d: u16 },
@@ -80,9 +80,13 @@ pub enum Instruction {
     TGETV { a: u8, b: u8, c: u8 },
     TGETS { a: u8, b: u8, c: u8 },
     TGETB { a: u8, b: u8, c: u8 },
+    #[bytecode(added = 2)]
+    TGETR { a: u8, b: u8, c: u8 },
     TSETV { a: u8, b: u8, c: u8 },
     TSETS { a: u8, b: u8, c: u8 },
     TSETB { a: u8, b: u8, c: u8 },
+    #[bytecode(added = 2)]
+    TSETR { a: u8, b: u8, c: u8 },
     TSETM { a: u8, d: u16 },
 
     // Calls and vararg handling.
@@ -190,9 +194,11 @@ impl fmt::Debug for Instruction {
             Self::TGETV { a, b, c } => write!(f, "TGETV {{ a: {} b: {} c: {} }}", a, b, c),
             Self::TGETS { a, b, c } => write!(f, "TGETS {{ a: {} b: {} c: {} }}", a, b, c),
             Self::TGETB { a, b, c } => write!(f, "TGETB {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TGETR { a, b, c } => write!(f, "TGETR {{ a: {} b: {} c: {} }}", a, b, c),
             Self::TSETV { a, b, c } => write!(f, "TSETV {{ a: {} b: {} c: {} }}", a, b, c),
             Self::TSETS { a, b, c } => write!(f, "TSETS {{ a: {} b: {} c: {} }}", a, b, c),
             Self::TSETB { a, b, c } => write!(f, "TSETB {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TSETR { a, b, c } => write!(f, "TSETR {{ a: {} b: {} c: {} }}", a, b, c),
             Self::TSETM { a, d } => write!(f, "TSETM {{ a: {} d: {} }}", a, d),
             Self::CALLM { a, b, c } => write!(f, "CALLM {{ a: {} b: {} c: {} }}", a, b, c),
             Self::CALL { a, b, c } => write!(f, "CALL {{ a: {} b: {} c: {} }}", a, b, c),
