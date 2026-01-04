@@ -25,7 +25,7 @@ impl Dump {
     /// * `data` - The binary data to parse.
     pub fn new(mut data: impl Buf) -> Self {
         let header = [data.get_u8(), data.get_u8(), data.get_u8(), data.get_u8()];
-        assert!(header == [0x1B, 0x4C, 0x4A, 2]);
+        assert!(header[..3] == [0x1B, 0x4C, 0x4A]);
 
         let flags = data.read_leb::<u32>();
 
@@ -46,7 +46,7 @@ impl Dump {
         };
 
         while data.has_remaining() {
-            if let Some(p) = Prototype::new(&instance, &mut data, instance.protos.len()) {
+            if let Some(p) = Prototype::new(&instance, &mut data, instance.protos.len(), header[3]) {
                 instance.protos.push(p);
             }
         }
@@ -77,16 +77,11 @@ mod tests {
 
     #[test]
     pub fn test_bc() {
-        let file = File::open(format!(
-            "{}/Downloads/ai.lua.jit",
-            env::home_dir().unwrap().to_string_lossy()
-        ))
-        .unwrap();
+        let file = File::open(format!("{}/Downloads/ai.lua.jit", env::home_dir().unwrap().to_string_lossy())).unwrap();
         let mut reader = BufReader::new(file);
 
         // Can i avoid this ?
-        let mut data =
-            Vec::with_capacity(reader.get_ref().metadata().map_or(0, |m| m.len()) as usize);
+        let mut data = Vec::with_capacity(reader.get_ref().metadata().map_or(0, |m| m.len()) as usize);
         _ = reader.read_to_end(&mut data);
         let bytes = Bytes::from(data);
 

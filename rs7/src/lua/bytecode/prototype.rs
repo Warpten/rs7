@@ -19,10 +19,10 @@ pub struct Prototype {
     framesize: u8,
     debug: Option<Debug>,
 
-    instructions: Vec<Instruction>,
-    uvs: Vec<Upvalue>,
-    kgc: Vec<Complex>,
-    kn: Vec<Numeric>,
+    pub instructions: Vec<Instruction>,
+    pub uvs: Vec<Upvalue>,
+    pub kgc: Vec<Complex>,
+    pub kn: Vec<Numeric>,
 }
 
 impl Prototype {
@@ -35,7 +35,8 @@ impl Prototype {
     /// * `dump` - The dump this prototype belongs to.
     /// * `data` - The data to parse.
     /// * `index` - The index of this prototype in the `Dump`.
-    pub fn new<R>(dump: &Dump, data: &mut R, index: usize) -> Option<Self>
+    /// * `version` - The bytecode version.
+    pub fn new<R>(dump: &Dump, data: &mut R, index: usize, version: u8) -> Option<Self>
     where
         R: Buf,
     {
@@ -70,9 +71,9 @@ impl Prototype {
         };
 
         // LuaJIT: prepends FUNCF opcode where A = framesize
-        let instructions = (0..sizeinsn).map(|_| Instruction::new(data)).collect();
+        let instructions = (0..sizeinsn).map(|_| Instruction::new(data, version)).collect();
 
-        let upvalues = (0..sizeuv).map(|_| Upvalue(data.get_u16())).collect();
+        let upvalues = (0..sizeuv).map(|_| Upvalue(data.get_u16_ne())).collect();
 
         let complex_constants = (0..sizekgc).map(|_| Complex::new(data, index)).collect();
 
@@ -113,6 +114,7 @@ impl fmt::Debug for Prototype {
         }
 
         binding
+            .field("instructions", &self.instructions)
             .field("uvs", &self.uvs)
             .field("kgc", &self.kgc)
             .field("kn", &self.kn)

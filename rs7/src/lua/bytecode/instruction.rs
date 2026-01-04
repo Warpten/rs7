@@ -1,7 +1,10 @@
+use std::fmt::{self};
+
 use rs7_proc::BytecodeInstruction;
 
 use bytes::Buf;
 
+#[rustfmt::skip]
 #[derive(BytecodeInstruction, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Instruction {
     ISLT { a: u8, d: u16 },
@@ -17,16 +20,23 @@ pub enum Instruction {
     ISEQP { a: u8, d: u16 },
     ISNEP { a: u8, d: u16 },
 
+    // Unary test and copy
     ISTC { a: u8, d: u16 },
     ISFC { a: u8, d: u16 },
     IST { d: u16 },
     ISF { d: u16 },
+    #[bytecode(added = 2)]
+    ISTYPE { a: u8, d: u16 }, // bcdump v2
+    #[bytecode(added = 2)]
+    ISNUM { a: u8, d: u16 },  // bcdump v2+
 
+    // Unary
     MOV { a: u8, d: u16 },
     NOT { a: u8, d: u16 },
     UNM { a: u8, d: u16 },
     LEN { a: u8, d: u16 },
 
+    // Binary
     ADDVN { a: u8, b: u8, c: u8 },
     SUBVN { a: u8, b: u8, c: u8 },
     MULVN { a: u8, b: u8, c: u8 },
@@ -45,6 +55,7 @@ pub enum Instruction {
     POW { a: u8, b: u8, c: u8 },
     CAT { a: u8, b: u8, c: u8 },
 
+    // Constants
     KSTR { a: u8, d: u16 },
     KCDATA { a: u8, d: u16 },
     KSHORT { a: u8, d: u16 },
@@ -52,6 +63,7 @@ pub enum Instruction {
     KPRI { a: u8, d: u16 },
     KNIL { a: u8, d: u16 },
 
+    // Upvalues and functions
     UGET { a: u8, d: u16 },
     USETV { a: u8, d: u16 },
     USETS { a: u8, d: u16 },
@@ -60,6 +72,7 @@ pub enum Instruction {
     UCLO { a: u8, d: u16 },
     FNEW { a: u8, d: u16 },
 
+    // Tables
     TNEW { a: u8, d: u16 },
     TDUP { a: u8, d: u16 },
     GGET { a: u8, d: u16 },
@@ -72,6 +85,7 @@ pub enum Instruction {
     TSETB { a: u8, b: u8, c: u8 },
     TSETM { a: u8, d: u16 },
 
+    // Calls and vararg handling.
     CALLM { a: u8, b: u8, c: u8 },
     CALL { a: u8, b: u8, c: u8 },
     CALLMT { a: u8, d: u16 },
@@ -81,11 +95,13 @@ pub enum Instruction {
     VARG { a: u8, b: u8, c: u8 },
     ISNEXT { a: u8, d: u16 },
 
+    // Returns
     RETM { a: u8, d: u16 },
     RET { a: u8, d: u16 },
     RET0 { a: u8, d: u16 },
     RET1 { a: u8, d: u16 },
 
+    // Loops and branches
     FORI { a: u8, d: u16 },
     JFORI { a: u8, d: u16 },
     FORL { a: u8, d: u16 },
@@ -98,6 +114,7 @@ pub enum Instruction {
     JLOOP { a: u8, d: u16 },
     JMP { a: u8, d: u16 },
 
+    // Function headers
     FUNCF { a: u8 },
     IFUNCF { a: u8 },
     JFUNCF { a: u8, d: u16 },
@@ -110,3 +127,105 @@ pub enum Instruction {
 }
 
 impl Instruction {}
+
+impl fmt::Debug for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ISLT { a, d } => write!(f, "ISLT {{ a: {} d: {} }}", a, d),
+            Self::ISGE { a, d } => write!(f, "ISGE {{ a: {} d: {} }}", a, d),
+            Self::ISLE { a, d } => write!(f, "ISLE {{ a: {} d: {} }}", a, d),
+            Self::ISGT { a, d } => write!(f, "ISGT {{ a: {} d: {} }}", a, d),
+            Self::ISEQV { a, d } => write!(f, "ISEQV {{ a: {} d: {} }}", a, d),
+            Self::ISNEV { a, d } => write!(f, "ISNEV {{ a: {} d: {} }}", a, d),
+            Self::ISEQS { a, d } => write!(f, "ISEQS {{ a: {} d: {} }}", a, d),
+            Self::ISNES { a, d } => write!(f, "ISNES {{ a: {} d: {} }}", a, d),
+            Self::ISEQN { a, d } => write!(f, "ISEQN {{ a: {} d: {} }}", a, d),
+            Self::ISNEN { a, d } => write!(f, "ISNEN {{ a: {} d: {} }}", a, d),
+            Self::ISEQP { a, d } => write!(f, "ISEQP {{ a: {} d: {} }}", a, d),
+            Self::ISNEP { a, d } => write!(f, "ISNEP {{ a: {} d: {} }}", a, d),
+            Self::ISTC { a, d } => write!(f, "ISTC {{ a: {} d: {} }}", a, d),
+            Self::ISFC { a, d } => write!(f, "ISFC {{ a: {} d: {} }}", a, d),
+            Self::IST { d } => write!(f, "IST {{ d: {} }}", d),
+            Self::ISF { d } => write!(f, "ISF {{ d: {} }}", d),
+            Self::ISTYPE { a, d } => write!(f, "ISTYPE {{ a: {} d: {} }}", a, d),
+            Self::ISNUM { a, d } => write!(f, "ISNUM {{ a: {} d: {} }}", a, d),
+            Self::MOV { a, d } => write!(f, "MOV {{ a: {} d: {} }}", a, d),
+            Self::NOT { a, d } => write!(f, "NOT {{ a: {} d: {} }}", a, d),
+            Self::UNM { a, d } => write!(f, "UNM {{ a: {} d: {} }}", a, d),
+            Self::LEN { a, d } => write!(f, "LEN {{ a: {} d: {} }}", a, d),
+            Self::ADDVN { a, b, c } => write!(f, "ADDVN {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::SUBVN { a, b, c } => write!(f, "SUBVN {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::MULVN { a, b, c } => write!(f, "MULVN {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::DIVVN { a, b, c } => write!(f, "DIVVN {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::MODVN { a, b, c } => write!(f, "MODVN {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::ADDNV { a, b, c } => write!(f, "ADDNV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::SUBNV { a, b, c } => write!(f, "SUBNV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::MULNV { a, b, c } => write!(f, "MULNV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::DIVNV { a, b, c } => write!(f, "DIVNV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::MODNV { a, b, c } => write!(f, "MODNV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::ADDVV { a, b, c } => write!(f, "ADDVV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::SUBVV { a, b, c } => write!(f, "SUBVV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::MULVV { a, b, c } => write!(f, "MULVV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::DIVVV { a, b, c } => write!(f, "DIVVV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::MODVV { a, b, c } => write!(f, "MODVV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::POW { a, b, c } => write!(f, "POW {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::CAT { a, b, c } => write!(f, "CAT {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::KSTR { a, d } => write!(f, "KSTR {{ a: {} d: {} }}", a, d),
+            Self::KCDATA { a, d } => write!(f, "KCDATA {{ a: {} d: {} }}", a, d),
+            Self::KSHORT { a, d } => write!(f, "KSHORT {{ a: {} d: {} }}", a, d),
+            Self::KNUM { a, d } => write!(f, "KNUM {{ a: {} d: {} }}", a, d),
+            Self::KPRI { a, d } => write!(f, "KPRI {{ a: {} d: {} }}", a, d),
+            Self::KNIL { a, d } => write!(f, "KNIL {{ a: {} d: {} }}", a, d),
+            Self::UGET { a, d } => write!(f, "UGET {{ a: {} d: {} }}", a, d),
+            Self::USETV { a, d } => write!(f, "USETV {{ a: {} d: {} }}", a, d),
+            Self::USETS { a, d } => write!(f, "USETS {{ a: {} d: {} }}", a, d),
+            Self::USETN { a, d } => write!(f, "USETN {{ a: {} d: {} }}", a, d),
+            Self::USETP { a, d } => write!(f, "USETP {{ a: {} d: {} }}", a, d),
+            Self::UCLO { a, d } => write!(f, "UCLO {{ a: {} d: {} }}", a, d),
+            Self::FNEW { a, d } => write!(f, "FNEW {{ a: {} d: {} }}", a, d),
+            Self::TNEW { a, d } => write!(f, "TNEW {{ a: {} d: {} }}", a, d),
+            Self::TDUP { a, d } => write!(f, "TDUP {{ a: {} d: {} }}", a, d),
+            Self::GGET { a, d } => write!(f, "GGET {{ a: {} d: {} }}", a, d),
+            Self::GSET { a, d } => write!(f, "GSET {{ a: {} d: {} }}", a, d),
+            Self::TGETV { a, b, c } => write!(f, "TGETV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TGETS { a, b, c } => write!(f, "TGETS {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TGETB { a, b, c } => write!(f, "TGETB {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TSETV { a, b, c } => write!(f, "TSETV {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TSETS { a, b, c } => write!(f, "TSETS {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TSETB { a, b, c } => write!(f, "TSETB {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::TSETM { a, d } => write!(f, "TSETM {{ a: {} d: {} }}", a, d),
+            Self::CALLM { a, b, c } => write!(f, "CALLM {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::CALL { a, b, c } => write!(f, "CALL {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::CALLMT { a, d } => write!(f, "CALLMT {{ a: {} d: {} }}", a, d),
+            Self::CALLT { a, d } => write!(f, "CALLT {{ a: {} d: {} }}", a, d),
+            Self::ITERC { a, b, c } => write!(f, "ITERC {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::ITERN { a, b, c } => write!(f, "ITERN {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::VARG { a, b, c } => write!(f, "VARG {{ a: {} b: {} c: {} }}", a, b, c),
+            Self::ISNEXT { a, d } => write!(f, "ISNEXT {{ a: {} d: {} }}", a, d),
+            Self::RETM { a, d } => write!(f, "RETM {{ a: {} d: {} }}", a, d),
+            Self::RET { a, d } => write!(f, "RET {{ a: {} d: {} }}", a, d),
+            Self::RET0 { a, d } => write!(f, "RET0 {{ a: {} d: {} }}", a, d),
+            Self::RET1 { a, d } => write!(f, "RET1 {{ a: {} d: {} }}", a, d),
+            Self::FORI { a, d } => write!(f, "FORI {{ a: {} d: {} }}", a, d),
+            Self::JFORI { a, d } => write!(f, "JFORI {{ a: {} d: {} }}", a, d),
+            Self::FORL { a, d } => write!(f, "FORL {{ a: {} d: {} }}", a, d),
+            Self::IFORL { a, d } => write!(f, "IFORL {{ a: {} d: {} }}", a, d),
+            Self::ITERL { a, d } => write!(f, "ITERL {{ a: {} d: {} }}", a, d),
+            Self::IITERL { a, d } => write!(f, "IITERL {{ a: {} d: {} }}", a, d),
+            Self::JITERL { a, d } => write!(f, "JITERL {{ a: {} d: {} }}", a, d),
+            Self::LOOP { a, d } => write!(f, "LOOP {{ a: {} d: {} }}", a, d),
+            Self::ILOOP { a, d } => write!(f, "ILOOP {{ a: {} d: {} }}", a, d),
+            Self::JLOOP { a, d } => write!(f, "JLOOP {{ a: {} d: {} }}", a, d),
+            Self::JMP { a, d } => write!(f, "JMP {{ a: {} d: {} }}", a, d),
+            Self::FUNCF { a } => write!(f, "FUNCF {{ a: {} }}", a),
+            Self::IFUNCF { a } => write!(f, "IFUNCF {{ a: {} }}", a),
+            Self::JFUNCF { a, d } => write!(f, "JFUNCF {{ a: {} d: {} }}", a, d),
+            Self::FUNCV { a } => write!(f, "FUNCV {{ a: {} }}", a),
+            Self::IFUNCV { a } => write!(f, "IFUNCV {{ a: {} }}", a),
+            Self::JFUNCV { a, d } => write!(f, "JFUNCV {{ a: {} d: {} }}", a, d),
+            Self::FUNCC { a } => write!(f, "FUNCC {{ a: {} }}", a),
+            Self::FUNCCW { a } => write!(f, "FUNCCW {{ a: {} }}", a),
+            Self::FUNC { a } => write!(f, "FUNC {{ a: {} }}", a),
+        }
+    }
+}

@@ -117,10 +117,10 @@ impl Debug {
         match line_count {
             65536.. => {
                 // data.read_u32_into(&lines[.);
-                (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u32() as u32));
+                (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u32_ne() as u32));
             }
             256.. => {
-                (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u16() as u32));
+                (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u16_ne() as u32));
             }
             _ => {
                 (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u8() as u32));

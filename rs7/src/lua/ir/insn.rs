@@ -1,14 +1,20 @@
 use crate::lua::{bytecode, ir::Emitter};
 
 /// A slot is a primitive bytecode `Instruction` operand.
-pub enum Slot {
+///
+/// LuaJIT instructions have one to three operands. Each operand is an integer
+/// that has a meaning tied to the instruction. In our IR, this relation is stripped,
+/// so the operands acquire metadata to retain this information instead. As a consequence,
+/// we chose to wrap them in a lightweight enumeration type, effectively encoding the
+/// information in the type system.
+pub enum BasicOperand {
     /// A variable slot number.
     Var(u32),
     /// An upvalue slot number.
     Upvalue(u32),
-    /// A literal.
+    /// A literal value.
     UnsignedLiteral(u32),
-    /// A signed literal.
+    /// A signed literal value.
     SignedLiteral(i32),
     /// A primitive.
     Pri(Primitive),
@@ -26,15 +32,47 @@ pub enum Slot {
     Branch(u32),
 }
 
-impl Slot {
+impl BasicOperand {
     pub fn len(self) -> Expr {
         Expr::Len(self)
     }
+
+    pub fn neg(self) -> Expr {
+        Expr::Negate(self)
+    }
+
+    pub fn not(self) -> Expr {
+        Expr::Not(self)
+    }
 }
 
-impl Into<Op> for Slot {
-    fn into(self) -> Op {
-        Op::Slot(self)
+macro_rules! define_binop {
+    ($v:ident, $fn:ident) => {
+        impl ::core::ops::$v for BasicOperand {
+            type Output = Expr;
+
+            fn $fn(self, rhs: Self) -> Self::Output {
+                Expr::$v(self, rhs)
+            }
+        }
+    };
+}
+
+// Define helpers to simplify combining slots in operands
+define_binop!(Rem, rem);
+define_binop!(Mul, mul);
+define_binop!(Div, div);
+define_binop!(Add, add);
+define_binop!(Sub, sub);
+impl BasicOperand {
+    pub fn pow(self, exp: Self) -> Expr {
+        Expr::Pow(self, exp)
+    }
+}
+
+impl Into<Operand> for BasicOperand {
+    fn into(self) -> Operand {
+        Operand::Basic(self)
     }
 }
 
@@ -44,10 +82,9 @@ pub enum Primitive {
     False,
 }
 
-pub enum Op {
+pub enum Operand {
     Expr(Expr),
-    Slot(Slot),
-    Cmp { op: CmpOp, lhs: Slot, rhs: Slot },
+    Basic(BasicOperand),
 }
 
 /// An `Expr` is a fragment of a complex instruction.
@@ -64,31 +101,35 @@ pub enum Op {
 /// }
 /// ```
 pub enum Expr {
+    /// A binary comparison operation. This should only be used by the branch register.
+    Binary(CmpOp, BasicOperand, BasicOperand),
     /// `lhs + rhs`.
-    Add(Slot, Slot),
+    Add(BasicOperand, BasicOperand),
     /// `lhs - rhs`.
-    Sub(Slot, Slot),
+    Sub(BasicOperand, BasicOperand),
     /// `lhs * rhs`.
-    Mul(Slot, Slot),
+    Mul(BasicOperand, BasicOperand),
     /// `lhs / rhs`.
-    Div(Slot, Slot),
+    Div(BasicOperand, BasicOperand),
     /// `lhs % rhs`.
-    Mod(Slot, Slot),
+    Rem(BasicOperand, BasicOperand),
     /// `lhs ^ rhs`.
-    Pow(Slot, Slot),
+    Pow(BasicOperand, BasicOperand),
     /// `lhs .. ~ .. rhs`.
-    Cat(Slot, Slot),
+    Cat(BasicOperand, BasicOperand),
     /// `lhs[rhs]`.
-    Index(Slot, Slot),
+    Index(BasicOperand, BasicOperand),
+    /// `!value`.
+    Not(BasicOperand),
     /// `-value`.
-    Negate(Slot),
+    Negate(BasicOperand),
     /// `#value` (object length).
-    Len(Slot),
+    Len(BasicOperand),
 }
 
-impl Into<Op> for Expr {
-    fn into(self) -> Op {
-        Op::Expr(self)
+impl Into<Operand> for Expr {
+    fn into(self) -> Operand {
+        Operand::Expr(self)
     }
 }
 
@@ -102,11 +143,20 @@ impl Into<Op> for Expr {
 /// independant of its operands.
 #[rustfmt::skip]
 pub enum Insn {
-    Assign { lhs: Op, rhs: Op },
-    JumpIf { cond: Op, target: Label },
-    Jump { target: Label },
+    Assign { lhs: Operand, rhs: Operand },
+    /// Follows the given label if `cond` evals to `true`.
+    ConditionalBranch { cond: Operand, target: Label },
+    /// Unconditionally jumps to the target label.
+    Branch { target: Label },
+    /// Returns control flow to the caller.
+    Return {
+        base: BasicOperand,
+        /// The amount of return values, starting at the base `Slot`.
+        count: u16
+    }
 }
 
+/// The comparison opcode used by `Expr::Binary`.
 #[repr(u8)]
 pub enum CmpOp {
     Eq,
@@ -117,19 +167,21 @@ pub enum CmpOp {
     Ge,
 }
 
+/// The destination of a branch instruction.
 pub enum Label {
     None,
-    Label(u32),
+    Label { ir: usize, bc: usize },
 }
 
 #[rustfmt::skip]
 macro_rules! op {
-    (Var $v:ident) => { Slot::Var($v as u32) };
-    (Num $v:ident) => { Slot::Num($v as u32) };
-    (Str $v:ident) => { Slot::Str($v as u32) };
-    (Uv $v:ident) => { Slot::Upvalue($v as u32) };
+    (Var $v:ident) => { BasicOperand::Var($v as u32) };
+    (Num $v:ident) => { BasicOperand::Num($v as u32) };
+    (Str $v:ident) => { BasicOperand::Str($v as u32) };
+    (Lit $v:ident) => { BasicOperand::UnsignedLiteral($v as u32) };
+    (Uv $v:ident) => { BasicOperand::Upvalue($v as u32) };
     (Pri $v:ident) => {
-        Slot::Pri(match $v {
+        BasicOperand::Pri(match $v {
             0 => Primitive::Nil,
             1 => Primitive::True,
             2 => Primitive::False,
@@ -140,34 +192,38 @@ macro_rules! op {
 
 #[rustfmt::skip]
 macro_rules! expr {
-    (Add $lhs:expr, $rhs:expr) => { Expr::Add($lhs, $rhs) };
-    (Sub $lhs:expr, $rhs:expr) => { Expr::Sub($lhs, $rhs) };
-    (Div $lhs:expr, $rhs:expr) => { Expr::Div($lhs, $rhs) };
-    (Mul $lhs:expr, $rhs:expr) => { Expr::Mul($lhs, $rhs) };
-    (Mod $lhs:expr, $rhs:expr) => { Expr::Mod($lhs, $rhs) };
+    (Add $lhs:expr, $rhs:expr) => { $lhs + $rhs };
+    (Sub $lhs:expr, $rhs:expr) => { $lhs - $rhs };
+    (Div $lhs:expr, $rhs:expr) => { $lhs / $rhs };
+    (Mul $lhs:expr, $rhs:expr) => { $lhs * $rhs };
+    (Mod $lhs:expr, $rhs:expr) => { $lhs % $rhs };
     (Pow $lhs:expr, $rhs:expr) => { Expr::Pow($lhs, $rhs) };
     (Cat $lhs:expr, $rhs:expr) => { Expr::Cat($lhs, $rhs) };
+    (Idx $lhs:expr, $rhs:expr) => { Expr::Index($lhs, $rhs) };
 }
 
 impl Insn {
     #[inline]
     fn emit_cond_branch(emitter: &mut Emitter, op: CmpOp, a: u8, d: u16) {
-        emitter.emit(Self::JumpIf {
-            cond: Op::Cmp {
-                op,
-                lhs: Slot::Var(a as u32).into(),
-                rhs: Slot::Var(d as u32).into(),
-            },
+        let op = Expr::Binary(op, op!(Var a), op!(Var d));
+
+        // Some instructions are followed by explicit branches; others inline the branch label
+        // in their operands. To account for this, we do not set the branch label here; explicit
+        // branching instructions will instead acquire the last emitted branch instruction and
+        // fixup the branch label. See `Emitter::fixup_branches`.
+
+        emitter.emit(Self::ConditionalBranch {
+            cond: op.into(),
             target: Label::None,
-        })
+        });
     }
 
     #[inline]
-    fn emit_assignment<L: Into<Op>, R: Into<Op>>(emitter: &mut Emitter, lhs: L, rhs: R) {
+    fn emit_assignment<L: Into<Operand>, R: Into<Operand>>(emitter: &mut Emitter, lhs: L, rhs: R) {
         emitter.emit(Self::Assign {
             lhs: lhs.into(),
             rhs: rhs.into(),
-        })
+        });
     }
 
     pub fn parse(insn: bytecode::Instruction, emitter: &mut Emitter) {
@@ -190,26 +246,28 @@ impl Insn {
             I::ISFC { a, d } => todo!(),
             I::IST { d } => todo!(),
             I::ISF { d } => todo!(),
+            I::ISTYPE { a, d } => todo!(),
+            I::ISNUM { a, d } => todo!(),
             I::MOV { a, d } => Self::emit_assignment(emitter, op!(Var a), op!(Var d)),
-            I::NOT { a, d } => todo!(),
-            I::UNM { a, d } => todo!(),
+            I::NOT { a, d } => Self::emit_assignment(emitter, op!(Var a), op!(Var d).not()),
+            I::UNM { a, d } => Self::emit_assignment(emitter, op!(Var a), op!(Var d).neg()),
             I::LEN { a, d } => Self::emit_assignment(emitter, op!(Var a), op!(Var d).len()),
-            I::ADDVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Add op!(Var b), op!(Num c))),
-            I::SUBVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Sub op!(Var b), op!(Num c))),
-            I::MULVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Mul op!(Var b), op!(Num c))),
-            I::DIVVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Div op!(Var b), op!(Num c))),
-            I::MODVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Mod op!(Var b), op!(Num c))),
-            I::ADDNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Add op!(Num b), op!(Var c))),
-            I::SUBNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Sub op!(Num b), op!(Var c))),
-            I::MULNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Mul op!(Num b), op!(Var c))),
-            I::DIVNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Div op!(Num b), op!(Var c))),
-            I::MODNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Mod op!(Num b), op!(Var c))),
-            I::ADDVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Add op!(Var b), op!(Var c))),
-            I::SUBVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Sub op!(Var b), op!(Var c))),
-            I::MULVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Mul op!(Var b), op!(Var c))),
-            I::DIVVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Div op!(Var b), op!(Var c))),
-            I::MODVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Mod op!(Var b), op!(Var c))),
-            I::POW { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Pow op!(Var b), op!(Var c))),
+            I::ADDVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) + op!(Num c)),
+            I::SUBVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) - op!(Num c)),
+            I::MULVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) * op!(Num c)),
+            I::DIVVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) / op!(Num c)),
+            I::MODVN { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) * op!(Num c)),
+            I::ADDNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Num b) + op!(Var c)),
+            I::SUBNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Num b) - op!(Var c)),
+            I::MULNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Num b) * op!(Var c)),
+            I::DIVNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Num b) / op!(Var c)),
+            I::MODNV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Num b) % op!(Var c)),
+            I::ADDVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) + op!(Var c)),
+            I::SUBVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) - op!(Var c)),
+            I::MULVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) * op!(Var c)),
+            I::DIVVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) / op!(Var c)),
+            I::MODVV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b) % op!(Var c)),
+            I::POW { a, b, c } => Self::emit_assignment(emitter, op!(Var a), op!(Var b).pow(op!(Var c))),
             I::CAT { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Cat op!(Var b), op!(Var c))),
             I::KSTR { a, d } => Self::emit_assignment(emitter, op!(Var a), op!(Str d)),
             I::KCDATA { a, d } => todo!(),
@@ -228,12 +286,12 @@ impl Insn {
             I::TDUP { a, d } => todo!(),
             I::GGET { a, d } => todo!(),
             I::GSET { a, d } => todo!(),
-            I::TGETV { a, b, c } => todo!(),
-            I::TGETS { a, b, c } => todo!(),
-            I::TGETB { a, b, c } => todo!(),
-            I::TSETV { a, b, c } => todo!(),
-            I::TSETS { a, b, c } => todo!(),
-            I::TSETB { a, b, c } => todo!(),
+            I::TGETV { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Idx op!(Var b), op!(Var c))),
+            I::TGETS { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Idx op!(Var b), op!(Str c))),
+            I::TGETB { a, b, c } => Self::emit_assignment(emitter, op!(Var a), expr!(Idx op!(Var b), op!(Lit c))),
+            I::TSETV { a, b, c } => Self::emit_assignment(emitter, expr!(Idx op!(Var b), op!(Var c)), op!(Var a)),
+            I::TSETS { a, b, c } => Self::emit_assignment(emitter, expr!(Idx op!(Var b), op!(Var c)), op!(Str a)),
+            I::TSETB { a, b, c } => Self::emit_assignment(emitter, expr!(Idx op!(Var b), op!(Var c)), op!(Lit a)),
             I::TSETM { a, d } => todo!(),
             I::CALLM { a, b, c } => todo!(),
             I::CALL { a, b, c } => todo!(),
@@ -244,9 +302,18 @@ impl Insn {
             I::VARG { a, b, c } => todo!(),
             I::ISNEXT { a, d } => todo!(),
             I::RETM { a, d } => todo!(),
-            I::RET { a, d } => todo!(),
-            I::RET0 { a, d } => todo!(),
-            I::RET1 { a, d } => todo!(),
+            I::RET { a, d } => emitter.emit(Insn::Return {
+                base: op!(Var a),
+                count: d - 1,
+            }),
+            I::RET0 { a, .. } => emitter.emit(Insn::Return {
+                base: op!(Var a),
+                count: 0,
+            }),
+            I::RET1 { a, .. } => emitter.emit(Insn::Return {
+                base: op!(Var a),
+                count: 1,
+            }),
             I::FORI { a, d } => todo!(),
             I::JFORI { a, d } => todo!(),
             I::FORL { a, d } => todo!(),
@@ -257,7 +324,7 @@ impl Insn {
             I::LOOP { a, d } => todo!(),
             I::ILOOP { a, d } => todo!(),
             I::JLOOP { a, d } => todo!(),
-            I::JMP { a, d } => todo!(),
+            I::JMP { a, d } => emitter.fixup_branch(Label::Label { ir: 0, bc: d as usize }),
             I::FUNCF { a } => todo!(),
             I::IFUNCF { a } => todo!(),
             I::JFUNCF { a, d } => todo!(),
