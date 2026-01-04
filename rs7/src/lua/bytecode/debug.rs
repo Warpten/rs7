@@ -2,7 +2,7 @@ use std::fmt;
 
 use bytes::Buf;
 
-use crate::lua::bytecode::primitives::read_cstring;
+use crate::lua::bytecode::{EndianBuffer, primitives::read_cstring};
 
 pub mod variable {
     use std::{fmt, ops::Range};
@@ -109,18 +109,17 @@ pub struct Debug {
 }
 
 impl Debug {
-    pub fn new<R>(data: &mut R, sizeinsn: usize, line_count: usize, upvalue_count: usize) -> Debug
+    pub fn new<R>(data: &mut impl EndianBuffer<R>, sizeinsn: usize, line_count: usize, upvalue_count: usize) -> Debug
     where
         R: Buf,
     {
         let mut lines = vec![0; sizeinsn];
         match line_count {
             65536.. => {
-                // data.read_u32_into(&lines[.);
-                (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u32_ne() as u32));
+                (0..sizeinsn).for_each(|i| lines.insert(i, data.read_u32::<R>() as u32));
             }
             256.. => {
-                (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u16_ne() as u32));
+                (0..sizeinsn).for_each(|i| lines.insert(i, data.read_u16::<R>() as u32));
             }
             _ => {
                 (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u8() as u32));
@@ -129,7 +128,7 @@ impl Debug {
 
         let mut upvalues = Vec::with_capacity(upvalue_count);
         for _ in 0..upvalue_count {
-            match read_cstring(data) {
+            match read_cstring(data.deref_mut()) {
                 Some(str) => upvalues.push(str),
                 None => panic!("Unable to parse string"),
             };
@@ -142,7 +141,7 @@ impl Debug {
                 break;
             }
 
-            let var_info = variable::Variable::new(data, tp);
+            let var_info = variable::Variable::new(data.deref_mut(), tp);
             vars.push(var_info);
         }
 

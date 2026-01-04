@@ -3,7 +3,7 @@ use std::fmt;
 use bytes::Buf;
 
 use crate::{
-    lua::bytecode::{Complex, Dump, Instruction, Numeric, debug::Debug},
+    lua::bytecode::{Complex, Dump, EndianBuffer, Instruction, Numeric, debug::Debug},
     utils::ReadVar,
 };
 
@@ -36,9 +36,9 @@ impl Prototype {
     /// * `data` - The data to parse.
     /// * `index` - The index of this prototype in the `Dump`.
     /// * `version` - The bytecode version.
-    pub fn new<R>(dump: &Dump, data: &mut R, index: usize, version: u8) -> Option<Self>
+    pub fn new<B>(dump: &Dump, data: &mut impl EndianBuffer<B>, index: usize, version: u8) -> Option<Self>
     where
-        R: Buf,
+        B: Buf,
     {
         let size = data.read_leb::<u32>();
         if size == 0 {
@@ -71,13 +71,15 @@ impl Prototype {
         };
 
         // LuaJIT: prepends FUNCF opcode where A = framesize
-        let instructions = (0..sizeinsn).map(|_| Instruction::new(data, version)).collect();
+        let instructions = (0..sizeinsn)
+            .map(|_| Instruction::new(data.deref_mut(), version))
+            .collect();
 
-        let upvalues = (0..sizeuv).map(|_| Upvalue(data.get_u16_ne())).collect();
+        let upvalues = (0..sizeuv).map(|_| Upvalue(data.read_u16::<B>())).collect();
 
-        let complex_constants = (0..sizekgc).map(|_| Complex::new(data, index)).collect();
+        let complex_constants = (0..sizekgc).map(|_| Complex::new(data.deref_mut(), index)).collect();
 
-        let numeric_constants = (0..sizekn).map(|_| Numeric::new(data)).collect();
+        let numeric_constants = (0..sizekn).map(|_| Numeric::new(data.deref_mut())).collect();
 
         let debug = if sizedbg > 0 {
             Some(Debug::new(data, sizeinsn, numline, sizeuv))

@@ -47,10 +47,7 @@ impl Complex {
     ///
     /// * `data` - The data source.
     /// * `proto` - The index of the `Prototype` this constant belongs to.
-    pub fn new<R>(data: &mut R, proto: usize) -> Self
-    where
-        R: Buf,
-    {
+    pub fn new(data: &mut impl Buf, proto: usize) -> Self {
         let tp = data.read_leb::<u32>() as usize;
 
         match tp {
@@ -70,10 +67,7 @@ impl Complex {
                     })
                     .collect();
 
-                Self::Table {
-                    array,
-                    hash: entries,
-                }
+                Self::Table { array, hash: entries }
             }
             2 => {
                 let value = read_parts(data);

@@ -18,7 +18,7 @@ pub enum TableItem {
 
 impl TableItem {
     // bcread_ktabk
-    pub fn new<R: Buf>(data: &mut R) -> Self {
+    pub fn new(data: &mut impl Buf) -> Self {
         let tp = data.read_leb::<u32>() as usize;
 
         match tp {

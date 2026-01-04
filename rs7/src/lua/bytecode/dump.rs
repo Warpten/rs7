@@ -3,7 +3,7 @@ use std::usize;
 use bytes::Buf;
 
 use crate::{
-    lua::bytecode::{Prototype, primitives::read_string},
+    lua::bytecode::{EndianBuffer, Prototype, primitives::read_string},
     utils::ReadVar,
 };
 
@@ -23,7 +23,7 @@ impl Dump {
     /// # Arguments:
     ///
     /// * `data` - The binary data to parse.
-    pub fn new(mut data: impl Buf) -> Self {
+    pub fn new<B: Buf>(mut data: impl EndianBuffer<B>) -> Self {
         let header = [data.get_u8(), data.get_u8(), data.get_u8(), data.get_u8()];
         assert!(header[..3] == [0x1B, 0x4C, 0x4A]);
 
@@ -33,7 +33,7 @@ impl Dump {
 
         let file_name = if (flags & 2) == 0 {
             let len = data.read_leb::<u32>() as usize;
-            Some(read_string(&mut data, len))
+            Some(read_string(&mut *data, len))
         } else {
             None
         };
@@ -73,7 +73,7 @@ mod tests {
 
     use bytes::Bytes;
 
-    use crate::lua::bytecode::Dump;
+    use crate::lua::bytecode::{Dump, LittleEndianBuffer};
 
     #[test]
     pub fn test_bc() {
@@ -85,7 +85,7 @@ mod tests {
         _ = reader.read_to_end(&mut data);
         let bytes = Bytes::from(data);
 
-        let dump = Dump::new(bytes);
+        let dump = Dump::new(LittleEndianBuffer(bytes));
         println!("{:#?}", dump);
     }
 }

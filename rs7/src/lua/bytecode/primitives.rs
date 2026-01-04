@@ -13,21 +13,6 @@ where
     }
 
     String::from_utf8(str).ok()
-
-    /*let mut reader = BufReader::new(data.reader());
-    let mut buf = vec![];
-
-    match reader.read_until(0, &mut buf) {
-        Ok(_) => {
-            if !buf.is_empty() {
-                // SAFETY: MUST be the final null terminator
-                unsafe { buf.set_len(buf.len() - 1) }
-            }
-
-            String::from_utf8(buf).ok()
-        }
-        _ => None,
-    }*/
 }
 
 pub fn read_string<R>(data: &mut R, size: usize) -> String
