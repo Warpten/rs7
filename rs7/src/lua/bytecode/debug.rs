@@ -116,10 +116,10 @@ impl Debug {
         let mut lines = vec![0; sizeinsn];
         match line_count {
             65536.. => {
-                (0..sizeinsn).for_each(|i| lines.insert(i, data.read_u32::<R>() as u32));
+                (0..sizeinsn).for_each(|i| lines.insert(i, data.read_u32() as u32));
             }
             256.. => {
-                (0..sizeinsn).for_each(|i| lines.insert(i, data.read_u16::<R>() as u32));
+                (0..sizeinsn).for_each(|i| lines.insert(i, data.read_u16() as u32));
             }
             _ => {
                 (0..sizeinsn).for_each(|i| lines.insert(i, data.get_u8() as u32));

@@ -4,12 +4,12 @@ use bytes::Buf;
 
 /// Provides read operations on a buffer.
 pub trait EndianBuffer<B: Buf>: DerefMut<Target = B> {
-    fn read_u16<R: Buf>(&mut self) -> u16;
-    fn read_u32<R: Buf>(&mut self) -> u32;
-    fn read_u64<R: Buf>(&mut self) -> u64;
-    fn read_i16<R: Buf>(&mut self) -> i16;
-    fn read_i32<R: Buf>(&mut self) -> i32;
-    fn read_i64<R: Buf>(&mut self) -> i64;
+    fn read_u16(&mut self) -> u16;
+    fn read_u32(&mut self) -> u32;
+    fn read_u64(&mut self) -> u64;
+    fn read_i16(&mut self) -> i16;
+    fn read_i32(&mut self) -> i32;
+    fn read_i64(&mut self) -> i64;
 }
 
 pub struct NativeEndianBuffer<B: Buf>(pub B);
@@ -17,79 +17,79 @@ pub struct LittleEndianBuffer<B: Buf>(pub B);
 pub struct BigEndianBuffer<B: Buf>(pub B);
 
 impl<B: Buf> EndianBuffer<B> for NativeEndianBuffer<B> {
-    fn read_u16<R: Buf>(&mut self) -> u16 {
+    fn read_u16(&mut self) -> u16 {
         self.get_u16_ne()
     }
 
-    fn read_u32<R: Buf>(&mut self) -> u32 {
+    fn read_u32(&mut self) -> u32 {
         self.get_u32_ne()
     }
 
-    fn read_u64<R: Buf>(&mut self) -> u64 {
+    fn read_u64(&mut self) -> u64 {
         self.get_u64_ne()
     }
 
-    fn read_i16<R: Buf>(&mut self) -> i16 {
+    fn read_i16(&mut self) -> i16 {
         self.get_i16_ne()
     }
 
-    fn read_i32<R: Buf>(&mut self) -> i32 {
+    fn read_i32(&mut self) -> i32 {
         self.get_i32_ne()
     }
 
-    fn read_i64<R: Buf>(&mut self) -> i64 {
+    fn read_i64(&mut self) -> i64 {
         self.get_i64_ne()
     }
 }
 
 impl<B: Buf> EndianBuffer<B> for LittleEndianBuffer<B> {
-    fn read_u16<R: Buf>(&mut self) -> u16 {
+    fn read_u16(&mut self) -> u16 {
         self.get_u16_le()
     }
 
-    fn read_u32<R: Buf>(&mut self) -> u32 {
+    fn read_u32(&mut self) -> u32 {
         self.get_u32_le()
     }
 
-    fn read_u64<R: Buf>(&mut self) -> u64 {
+    fn read_u64(&mut self) -> u64 {
         self.get_u64_le()
     }
 
-    fn read_i16<R: Buf>(&mut self) -> i16 {
+    fn read_i16(&mut self) -> i16 {
         self.get_i16_le()
     }
 
-    fn read_i32<R: Buf>(&mut self) -> i32 {
+    fn read_i32(&mut self) -> i32 {
         self.get_i32_le()
     }
 
-    fn read_i64<R: Buf>(&mut self) -> i64 {
+    fn read_i64(&mut self) -> i64 {
         self.get_i64_le()
     }
 }
 
 impl<B: Buf> EndianBuffer<B> for BigEndianBuffer<B> {
-    fn read_u16<R: Buf>(&mut self) -> u16 {
+    fn read_u16(&mut self) -> u16 {
         self.get_u16()
     }
 
-    fn read_u32<R: Buf>(&mut self) -> u32 {
+    fn read_u32(&mut self) -> u32 {
         self.get_u32()
     }
 
-    fn read_u64<R: Buf>(&mut self) -> u64 {
+    fn read_u64(&mut self) -> u64 {
         self.get_u64()
     }
 
-    fn read_i16<R: Buf>(&mut self) -> i16 {
+    fn read_i16(&mut self) -> i16 {
         self.get_i16()
     }
 
-    fn read_i32<R: Buf>(&mut self) -> i32 {
+    fn read_i32(&mut self) -> i32 {
         self.get_i32()
     }
 
-    fn read_i64<R: Buf>(&mut self) -> i64 {
+    fn read_i64(&mut self) -> i64 {
         self.get_i64()
     }
 }

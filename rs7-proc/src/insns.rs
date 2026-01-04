@@ -284,6 +284,8 @@ pub fn bytecode_insn_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
         .rev();
 
     quote! {
+        use crate::lua::bytecode::EndianBuffer;
+
         impl #name {
             /// Creates a new bytecode instruction.
             ///
@@ -291,8 +293,8 @@ pub fn bytecode_insn_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
             ///
             /// * `data` - The instruction data to parse.
             /// * `version` - The bytecode version.
-            pub fn new(data: &mut impl Buf, version: u8) -> Self {
-                let insn = data.get_u32_ne();
+            pub fn new<B: Buf>(data: &mut impl EndianBuffer<B>, version: u8) -> Self {
+                let insn = data.read_u32();
 
                 #( #parsers )*
 
@@ -350,8 +352,8 @@ mod tests {
                 #[doc = r""]
                 #[doc = r" * `data` - The instruction data to parse."]
                 #[doc = r" * `version` - The bytecode version."]
-                pub fn new(data: &mut impl Buf, version: u8) -> Self {
-                    let insn = data.get_u32_ne();
+                pub fn new<B: Buf>(data: &mut impl EndianBuffer<B>, version: u8) -> Self {
+                    let insn = data.read_u32();
 
                     #[inline] fn parse_a(insn: u32) -> Instruction {
                         Instruction::A { a: ((insn >> 8) & 0xFF) as u8, }

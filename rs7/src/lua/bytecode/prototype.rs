@@ -71,11 +71,9 @@ impl Prototype {
         };
 
         // LuaJIT: prepends FUNCF opcode where A = framesize
-        let instructions = (0..sizeinsn)
-            .map(|_| Instruction::new(data.deref_mut(), version))
-            .collect();
+        let instructions = (0..sizeinsn).map(|_| Instruction::new(data, version)).collect();
 
-        let upvalues = (0..sizeuv).map(|_| Upvalue(data.read_u16::<B>())).collect();
+        let upvalues = (0..sizeuv).map(|_| Upvalue(data.read_u16())).collect();
 
         let complex_constants = (0..sizekgc).map(|_| Complex::new(data.deref_mut(), index)).collect();
 
