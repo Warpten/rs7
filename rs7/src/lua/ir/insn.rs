@@ -320,6 +320,7 @@ impl Insn {
             I::JFORI { a, d } => todo!(),
             I::FORL { a, d } => todo!(),
             I::IFORL { a, d } => todo!(),
+            I::JFORL { a, d } => todo!(),
             I::ITERL { a, d } => todo!(),
             I::IITERL { a, d } => todo!(),
             I::JITERL { a, d } => todo!(),

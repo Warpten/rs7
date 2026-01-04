@@ -345,6 +345,7 @@ mod tests {
         });
 
         let expected = quote! {
+            use crate::lua::bytecode::EndianBuffer;
             impl Instruction {
                 #[doc = r" Creates a new bytecode instruction."]
                 #[doc = r""]
